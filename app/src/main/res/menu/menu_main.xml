@@ -1,0 +1,14 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools" tools:context=".MainActivity">
+    <item android:id="@+id/menu_sms" android:title="Enviar SMS"
+        android:orderInCategory="100" app:showAsAction="always"
+        android:icon="@android:drawable/button_onoff_indicator_on" android:visible="false"/>
+    <item android:id="@+id/menu_no_sms" android:title="No Enviar SMS"
+        android:orderInCategory="100" app:showAsAction="always"
+        android:icon="@android:drawable/button_onoff_indicator_off"/>
+    <item android:id="@+id/menu_encender" android:title="ENCENDER"
+        android:orderInCategory="100" app:showAsAction="always" />
+    <item android:id="@+id/menu_apagar" android:title="APAGAR"
+        android:orderInCategory="100" app:showAsAction="always" />
+</menu>

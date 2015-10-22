@@ -32,24 +32,28 @@ import java.util.Random;
 public class MainActivity extends ActionBarActivity implements View.OnClickListener, SensorEventListener {
 
     private static final String TELEFONO_TWILIO = "5549998734";
+    private static final int VERDE = 1;
+    private static final int ROJO = 2;
 
-    TextView tvProximidad, tvGiro, tvCarga, tvIzq, tvDer, tvOrigen;
-    Button btnProximidad, btnGiro, btnCarga;
-    SensorManager mSensorManager;
-    boolean encProximidad, encGiro, encCarga, SmsEnviado, yaExisteLectura, esValorModificado;
+    private TextView tvProximidad, tvGiro, tvCarga, tvIzq, tvDer, tvOrigen;
+    private Button btnProximidad, btnGiro, btnCarga;
+    private SensorManager mSensorManager;
+    private boolean encProximidad, encGiro, encCarga, SmsEnviado, yaExisteLectura, esValorModificado;
     private ImageView imagen;
     private float grados = 0f;
-    IntentFilter filtroConectado;
-    IntentFilter filtroDesconectado;
+    private IntentFilter filtroConectado;
+    private IntentFilter filtroDesconectado;
     private PowerManager.WakeLock mWakeLock;
     private float primeraLectura, izquierda, derecha;
-    Sensor proximidad;
-    MenuItem itemSMS, itemNoSMS;
+    private Sensor proximidad;
+    private MenuItem itemSMS, itemNoSMS;
+    private BroadcastReceiver receptorCarga;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_main); Toast.makeText(this, "Entró a OnCreate", Toast.LENGTH_SHORT).show();
         tvProximidad = (TextView)findViewById(R.id.tvProximidad);
         tvGiro = (TextView)findViewById(R.id.tvGiro);
         tvCarga = (TextView)findViewById(R.id.tvCarga);
@@ -63,11 +67,14 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
         btnProximidad.setOnClickListener(this);
         btnGiro.setOnClickListener(this);
         btnCarga.setOnClickListener(this);
-        btnProximidad.setBackgroundColor(Color.rgb(201, 108, 108));
-        btnCarga.setBackgroundColor(Color.rgb(201, 108, 108));
-        btnGiro.setBackgroundColor(Color.rgb(201, 108, 108));
+        btnProximidad.setBackgroundColor(establecerColor(ROJO));
+        btnCarga.setBackgroundColor(establecerColor(ROJO));
+        btnGiro.setBackgroundColor(establecerColor(ROJO));
         encProximidad=false;encGiro=false;encCarga=false;SmsEnviado=true;yaExisteLectura=false;
+     //   registrarSensores();
+    }
 
+    public void registrarSensores(){
         mSensorManager = (SensorManager) getSystemService(this.SENSOR_SERVICE);
         if (mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY) != null){
             proximidad = mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
@@ -90,15 +97,41 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
             encGiro=false;
         }
 
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        this.mWakeLock = pm.newWakeLock(PowerManager.SCREEN_DIM_WAKE_LOCK, "ddd");
+        this.mWakeLock.acquire();
+
+        receptorCarga =
+                new BroadcastReceiver() {
+                    @Override
+                    public void onReceive(Context context, Intent intent) {
+                        if (intent.getAction().equals(Intent.ACTION_POWER_DISCONNECTED)) {
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    if(encCarga) {
+                                        enviarAlarma(SensoresEnum.CARGA.getId(),-1);
+                                        tvCarga.setText("Desconectado");
+                                    }
+                                }
+                            });
+                        }
+                        if (intent.getAction().equals(Intent.ACTION_POWER_CONNECTED)) {
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    if(encCarga) {
+                                        tvCarga.setText("Conectado");
+                                    }
+                                }
+                            });
+                        }
+                    }
+                };
         filtroConectado = new IntentFilter(Intent.ACTION_POWER_CONNECTED);
         filtroDesconectado = new IntentFilter(Intent.ACTION_POWER_DISCONNECTED);
         registerReceiver(receptorCarga, filtroConectado);
         registerReceiver(receptorCarga, filtroDesconectado);
-
-        final PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        this.mWakeLock = pm.newWakeLock(PowerManager.SCREEN_DIM_WAKE_LOCK, "ddd");
-        this.mWakeLock.acquire();
-
     }
 
     @Override
@@ -181,12 +214,12 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
             case R.id.btnProximidad:
                 if(encProximidad){
                     encProximidad=false;
-                    btnProximidad.setBackgroundColor(Color.rgb(201, 108, 108));
+                    btnProximidad.setBackgroundColor(establecerColor(ROJO));
                     btnProximidad.setText("Apagado");
                     RevisionSensores.guardarProximidad(this, encProximidad);
                 }else{
                     encProximidad=true;
-                    btnProximidad.setBackgroundColor(Color.rgb(43, 157, 112));
+                    btnProximidad.setBackgroundColor(establecerColor(VERDE));
                     btnProximidad.setText("Encendido");
                     RevisionSensores.guardarProximidad(this, encProximidad);
                 }
@@ -196,12 +229,12 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
                     encCarga=false;
                     btnCarga.setText("Apagado");
                     tvCarga.setText("Sin Estatus");
-                    btnCarga.setBackgroundColor(Color.rgb(201, 108, 108));
+                    btnCarga.setBackgroundColor(establecerColor(ROJO));
                     RevisionSensores.guardarCarga(this, encCarga);
                 }else{
                     encCarga=true;
                     btnCarga.setText("Encendido");
-                    btnCarga.setBackgroundColor(Color.rgb(43, 157, 112));
+                    btnCarga.setBackgroundColor(establecerColor(VERDE));
                     RevisionSensores.guardarCarga(this, encCarga);
                 }
                 break;
@@ -209,47 +242,19 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
                 if(encGiro){
                     encGiro=false;
                     btnGiro.setText("Apagado");
-                    btnGiro.setBackgroundColor(Color.rgb(201, 108, 108));
+                    btnGiro.setBackgroundColor(establecerColor(ROJO));
                     RevisionSensores.guardarOrientacion(this, encGiro);
                     yaExisteLectura=false;
                 }else{
                     encGiro=true;
                     btnGiro.setText("Encendido");
-                    btnGiro.setBackgroundColor(Color.rgb(43, 157, 112));
+                    btnGiro.setBackgroundColor(establecerColor(VERDE));
                     RevisionSensores.guardarOrientacion(this, encGiro);
                 }
                 break;
         }
     }
 
-    private BroadcastReceiver receptorCarga =
-            new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    if (intent.getAction().equals(Intent.ACTION_POWER_DISCONNECTED)) {
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                if(encCarga) {
-                                    enviarAlarma(SensoresEnum.CARGA.getId(),-1);
-                                    tvCarga.setText("Desconectado");
-                                }
-                            }
-                        });
-                    }
-                    if (intent.getAction().equals(Intent.ACTION_POWER_CONNECTED)) {
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                if(encCarga) {
-                                    tvCarga.setText("Conectado");
-                                }
-                            }
-                        });
-                    }
-
-                }
-            };
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -266,15 +271,15 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 
         if (id == R.id.menu_apagar) {
             encCarga=false;encGiro=false;encProximidad=false;yaExisteLectura=false;
-            btnGiro.setBackgroundColor(Color.rgb(201, 108, 108));btnGiro.setText("Apagado");
-            btnCarga.setBackgroundColor(Color.rgb(201, 108, 108));btnCarga.setText("Apagado");
-            btnProximidad.setBackgroundColor(Color.rgb(201, 108, 108));btnProximidad.setText("Apagado");
+            btnGiro.setBackgroundColor(establecerColor(ROJO));btnGiro.setText("Apagado");
+            btnCarga.setBackgroundColor(establecerColor(ROJO));btnCarga.setText("Apagado");
+            btnProximidad.setBackgroundColor(establecerColor(ROJO));btnProximidad.setText("Apagado");
         }
         if (id == R.id.menu_encender) {
             encCarga=true;encGiro=true;encProximidad=true;
-            btnGiro.setBackgroundColor(Color.rgb(43, 157, 112));btnGiro.setText("Encendido");
-            btnCarga.setBackgroundColor(Color.rgb(43, 157, 112));btnCarga.setText("Encendido");
-            btnProximidad.setBackgroundColor(Color.rgb(43, 157, 112));btnProximidad.setText("Encendido");
+            btnGiro.setBackgroundColor(establecerColor(VERDE));btnGiro.setText("Encendido");
+            btnCarga.setBackgroundColor(establecerColor(VERDE));btnCarga.setText("Encendido");
+            btnProximidad.setBackgroundColor(establecerColor(VERDE));btnProximidad.setText("Encendido");
         }
         if(id == R.id.menu_sms){
             SmsEnviado=true;
@@ -293,6 +298,14 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
         return super.onOptionsItemSelected(item);
     }
 
+    public int establecerColor(int color){
+        if(color == VERDE){
+            return Color.rgb(43, 157, 112);
+        }else{
+            return Color.rgb(201, 108, 108);
+        }
+    }
+
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
@@ -306,10 +319,37 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 
     @Override
     protected void onStop() {
-        unregisterReceiver(receptorCarga);
+        encCarga=false;encGiro=false;encProximidad=false;yaExisteLectura=false;
+        btnGiro.setBackgroundColor(establecerColor(ROJO));btnGiro.setText("Apagado");
+        btnCarga.setBackgroundColor(establecerColor(ROJO));btnCarga.setText("Apagado");
+        btnProximidad.setBackgroundColor(establecerColor(ROJO));btnProximidad.setText("Apagado");
+
+        SmsEnviado=true;
+        itemSMS.setVisible(false);
+        itemNoSMS.setVisible(true);
+
+        if(receptorCarga != null) {
+            unregisterReceiver(receptorCarga);
+            receptorCarga = null;
+            Toast.makeText(this,"Se borró registro Receptor Carga",Toast.LENGTH_SHORT).show();
+        }
+
         mSensorManager.unregisterListener(this);
-        this.mWakeLock.release();
+
+        if(mWakeLock != null) {
+            this.mWakeLock.release();
+            this.mWakeLock = null;
+            Toast.makeText(this,"Se liberó Despertador",Toast.LENGTH_SHORT).show();
+        }
         Toast.makeText(this,"Entró a OnStop",Toast.LENGTH_SHORT).show();
         super.onStop();
+    }
+
+    @Override
+    protected void onPostResume() {
+        Toast.makeText(this, "Entró a OnPostResume", Toast.LENGTH_SHORT).show();
+        registrarSensores();
+        Toast.makeText(this, "Se registraron sensores", Toast.LENGTH_SHORT).show();
+        super.onPostResume();
     }
 }
